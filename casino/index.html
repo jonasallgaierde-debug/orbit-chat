@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casino Royale – Spielgeld</title>
+<style>
+:root{--bg:#07080c;--card:#11131b;--line:#292d3a;--text:#f5f7fb;--muted:#9299aa;--accent:#7c5cff;--good:#36d399;--bad:#ff5c70}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -10%,#252044 0,#07080c 45%);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif;min-height:100vh}
+.wrap{max-width:1100px;margin:auto;padding:22px}.top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:20px}.brand{font-size:25px;font-weight:800}.badge{font-size:12px;color:#b9c0d0;border:1px solid var(--line);padding:7px 10px;border-radius:99px}
+.grid{display:grid;grid-template-columns:1.5fr .8fr;gap:18px}.card{background:rgba(17,19,27,.9);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:0 20px 60px #0005}.balance{font-size:38px;font-weight:900;margin:4px 0 18px}.muted{color:var(--muted)}.row{display:flex;gap:9px;flex-wrap:wrap}.bet{border:1px solid var(--line);background:#171a24;color:#fff;padding:10px 14px;border-radius:12px;cursor:pointer}.bet.active{border-color:var(--accent);background:#2a2158}.machine{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:22px 0}.reel{height:120px;display:grid;place-items:center;background:#090a0f;border:1px solid #303543;border-radius:18px;font-size:58px}.spin{width:100%;padding:15px;border:0;border-radius:14px;background:linear-gradient(135deg,#8a68ff,#5b42d8);color:white;font-weight:800;font-size:17px;cursor:pointer}.spin:disabled{opacity:.5;cursor:not-allowed}.msg{min-height:25px;text-align:center;margin:14px 0;font-weight:700}.rank{display:flex;flex-direction:column;gap:8px;margin-top:12px}.player{display:flex;justify-content:space-between;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#0d0f15}.me{border-color:#6750e8}.name{font-weight:700}.money{font-variant-numeric:tabular-nums}.online{display:flex;align-items:center;gap:7px;margin-top:8px}.dot{width:8px;height:8px;border-radius:50%;background:var(--good)}input{width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:#0b0d12;color:white;margin:10px 0}.overlay{position:fixed;inset:0;background:#05060af2;display:grid;place-items:center;padding:20px;z-index:5}.modal{max-width:420px;width:100%;text-align:center}.small{font-size:12px;color:var(--muted);line-height:1.5}@media(max-width:800px){.grid{grid-template-columns:1fr}.reel{height:100px;font-size:48px}}
+</style>
+</head>
+<body>
+<div id="login" class="overlay"><div class="card modal"><div class="brand">🎰 Casino Royale</div><p class="muted">Nur Spielgeld · jeder startet mit 10.000 $</p><input id="name" maxlength="24" placeholder="Dein Name"><button id="join" class="spin">Casino betreten</button><p class="small">Kein Echtgeld, keine Einzahlungen und keine Auszahlungen.</p></div></div>
+<div class="wrap">
+<div class="top"><div><div class="brand">🎰 Casino Royale</div><div class="muted">Online-Spielgeldcasino</div></div><div class="badge">100% Spielgeld</div></div>
+<div class="grid">
+<main class="card"><div class="muted">Dein Guthaben</div><div id="balance" class="balance">$10,000</div>
+<div class="muted">Einsatz</div><div id="bets" class="row" style="margin:9px 0 4px"></div>
+<div class="machine"><div id="r1" class="reel">🍒</div><div id="r2" class="reel">🍋</div><div id="r3" class="reel">🔔</div></div>
+<button id="spin" class="spin">SPIN</button><div id="msg" class="msg"></div>
+<div class="small">Auszahlung: 2 gleiche Symbole = 2× · 3 gleiche Symbole bis 25×. Das Guthaben wird serverseitig aktualisiert.</div></main>
+<aside class="card"><div style="display:flex;justify-content:space-between"><div><b>Online</b><div id="count" class="muted">0 Spieler</div></div><div class="online"><span class="dot"></span>live</div></div><div id="rank" class="rank"></div></aside>
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://hfnuogfpggjpunezdrzq.supabase.co';
+const SUPABASE_KEY='sb_publishable_j8n61Gdbca7IqDGQ9cYq9g_3Qi0Bgdy';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const idKey='casino-player-id';
+let id=localStorage.getItem(idKey)||crypto.randomUUID(); localStorage.setItem(idKey,id);
+let player=null,bet=100, channel=null;
+const $=s=>document.querySelector(s);
+function money(n){return '$'+Number(n).toLocaleString('de-DE')}
+function renderBets(){ $('#bets').innerHTML=[10,50,100,250,500,1000].map(x=>'<button class="bet '+(x===bet?'active':'')+'" data-b="'+x+'">'+money(x)+'</button>').join('');document.querySelectorAll('[data-b]').forEach(b=>b.onclick=()=>{bet=+b.dataset.b;renderBets()})}
+function renderRank(rows){rows.sort((a,b)=>b.balance-a.balance);$('#count').textContent=rows.length+' Spieler';$('#rank').innerHTML=rows.slice(0,20).map((p,i)=>'<div class="player '+(p.id===id?'me':'')+'"><span><span class="muted">'+(i+1)+'.</span> <span class="name">'+esc(p.name)+'</span></span><span class="money">'+money(p.balance)+'</span></div>').join('')||'<div class="muted">Noch niemand online.</div>'}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+async function refresh(){let {data,error}=await sb.from('players').select('id,name,balance,total_won,total_spins,last_seen').order('balance',{ascending:false}).limit(50);if(error){console.error(error);return}renderRank(data||[]);let me=(data||[]).find(x=>x.id===id);if(me){player=me;$('#balance').textContent=money(me.balance)}}
+async function join(){let n=$('#name').value.trim();if(!n)return;let {data,error}=await sb.rpc('touch_player',{p_id:id,p_name:n});if(error){alert('Online-Spiel ist noch nicht bereit. Bitte später erneut versuchen.');console.error(error);return}player=data;$('#login').style.display='none';$('#balance').textContent=money(data.balance);renderBets();await refresh();channel=sb.channel('casino-live').on('postgres_changes',{event:'*',schema:'public',table:'players'},()=>refresh()).subscribe()}
+async function spin(){if(!player)return;$('#spin').disabled=true;$('#msg').textContent='🎰 Dreht…';const reels=['🍒','🍋','🔔','⭐','7️⃣','💎'];let t=0;const anim=setInterval(()=>{$('#r1').textContent=reels[Math.floor(Math.random()*6)];$('#r2').textContent=reels[Math.floor(Math.random()*6)];$('#r3').textContent=reels[Math.floor(Math.random()*6)];if(++t>10)clearInterval(anim)},70);let {data,error}=await sb.rpc('spin_slots',{p_id:id,p_bet:bet});setTimeout(()=>{if(error){$('#msg').textContent=error.message.includes('Nicht genug')?'Nicht genug Spielgeld.':'Fehler beim Drehen.';$('#msg').style.color='var(--bad)'}else{let s=data.symbols;$('#r1').textContent=s[0];$('#r2').textContent=s[1];$('#r3').textContent=s[2];$('#msg').textContent=data.win>0?'🎉 Gewinn: '+money(data.win):'Leider verloren';$('#msg').style.color=data.win>0?'var(--good)':'var(--muted)';$('#balance').textContent=money(data.balance);refresh()}$('#spin').disabled=false},800)}
+$('#join').onclick=join;$('#name').addEventListener('keydown',e=>{if(e.key==='Enter')join()});$('#spin').onclick=spin;renderBets();
+</script>
+</body></html>
