@@ -33,13 +33,14 @@
 <script>
 const db=supabase.createClient('https://hfnuogfpggjpunezdrzq.supabase.co','sb_publishable_j8n61Gdbca7IqDGQ9cYq9g_3Qi0Bgdy');
 const IMAGE_BUCKET='exercise-location-images';
-const $=id=>document.getElementById(id);let lat=null,lng=null,temp=null,locations=[],admin=false,markers={};
+const $=id=>document.getElementById(id);let lat=null,lng=null,temp=null,locations=[],admin=false,markers={},currentMember=sessionStorage.getItem('thw_member')||'';
 const map=L.map('map').setView([47.805,9.64],13);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
 function toast(t){$('toast').textContent=t;$('toast').style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>$('toast').style.display='none',3000)}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function photoHtml(urls){const a=Array.isArray(urls)?urls:[];if(!a.length)return '';return '<div class="photo-grid">'+a.map(u=>'<a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="Location-Bild" loading="lazy"></a>').join('')+'</div>'}
 function popupHtml(l){
-  const adminButtons=admin?'<div class="actions"><button onclick="startEdit(\''+l.id+'\')">✏️ Bearbeiten</button><button onclick="addPhotos(\''+l.id+'\')">📷 Bilder</button><button onclick="deleteLocation(\''+l.id+'\')">🗑️ Löschen</button></div>':'';
+  const canDelete=admin || (currentMember && currentMember===l.submitted_by);
+  const adminButtons=admin?'<div class="actions"><button onclick="startEdit(\''+l.id+'\')">✏️ Bearbeiten</button><button onclick="addPhotos(\''+l.id+'\')">📷 Bilder</button><button onclick="deleteLocation(\''+l.id+'\')">🗑️ Löschen</button></div>':(canDelete?'<div class="actions"><button onclick="deleteLocation(\''+l.id+'\')">🗑️ Eigene Location löschen</button></div>':'');
   return '<div class="popup-info"><b>'+esc(l.name)+'</b>'
     +'<div class="meta"><b>Was ist dort:</b><br>'+esc(l.description||'Keine Angabe')+'</div>'
     +'<div class="meta"><b>Was könnte passieren:</b><br>'+esc(l.idea||'Keine Angabe')+'</div>'
@@ -77,8 +78,9 @@ async function toggle(id,v){if(!admin)return;const r=await db.from('exercise_loc
 async function saveLocation(){if(lat===null)return toast('Bitte zuerst GPS übernehmen oder einen Punkt auf der Karte setzen.');if(!$('name').value.trim()||!$('person').value.trim())return toast('Name der Location und dein Name fehlen.');const p={name:$('name').value.trim(),submitted_by:$('person').value.trim(),description:$('description').value.trim(),idea:$('idea').value.trim(),category:$('category').value,priority:Number($('priority').value),latitude:lat,longitude:lng,image_urls:[]};const r=await db.from('exercise_locations').insert(p).select().single();if(r.error)return toast('Speichern fehlgeschlagen: '+r.error.message);const urls=await uploadPhotos(r.data.id,$('photos').files);if(urls.length){const u=await db.from('exercise_locations').update({image_urls:urls}).eq('id',r.data.id);if(u.error)return toast('Location gespeichert, aber Bilder konnten nicht verknüpft werden.')}toast('Location gespeichert.');$('clear').click();load()}
 $('save').onclick=saveLocation;
 async function deleteLocation(id){
-  if(!admin)return;
   const l=locations.find(x=>x.id===id);if(!l)return;
+  const canDelete=admin || (currentMember && currentMember===l.submitted_by);
+  if(!canDelete)return toast('Du kannst nur deine eigenen Locations löschen.');
   if(!confirm('Location „'+l.name+'“ wirklich löschen?'))return;
   for(const url of (Array.isArray(l.image_urls)?l.image_urls:[])){
     const marker='/storage/v1/object/public/'+IMAGE_BUCKET+'/';const i=url.indexOf(marker);
@@ -114,9 +116,9 @@ async function addPhotos(id){
   input.click();
 }
 window.addPhotos=addPhotos;
-function memberLogin(){const n=$('member').value.trim();const p=$('memberPassword').value.trim();const UNIVERSAL_PASSWORD='THW24';if(!n)return toast('Bitte deinen Namen auswählen.');if(p!==UNIVERSAL_PASSWORD){$('memberPassword').value='';$('memberPassword').focus();return toast('Falsches Passwort.');}$('person').value=n;$('loginScreen').style.display='none';sessionStorage.setItem('thw_member',n);toast('Willkommen, '+n+'!')}
+function memberLogin(){const n=$('member').value.trim();const p=$('memberPassword').value.trim();const UNIVERSAL_PASSWORD='THW24';if(!n)return toast('Bitte deinen Namen auswählen.');if(p!==UNIVERSAL_PASSWORD){$('memberPassword').value='';$('memberPassword').focus();return toast('Falsches Passwort.');}$('person').value=n;currentMember=n;$('loginScreen').style.display='none';sessionStorage.setItem('thw_member',n);toast('Willkommen, '+n+'!')}
 $('memberLogin').onclick=memberLogin;$('memberPassword').addEventListener('keydown',e=>{if(e.key==='Enter')memberLogin()});
-const savedMember=sessionStorage.getItem('thw_member');if(savedMember&&['Jason','Moritz','Jonas','Kira','Johannes','Hennrik'].includes(savedMember)){$('person').value=savedMember;$('loginScreen').style.display='none';}
+const savedMember=sessionStorage.getItem('thw_member');if(savedMember&&['Jason','Moritz','Jonas','Kira','Johannes','Hennrik'].includes(savedMember)){$('person').value=savedMember;currentMember=savedMember;$('loginScreen').style.display='none';}
 function login(){if($('adminPin').value==='THW24-ADMIN'){admin=true;$('adminStatus').textContent='✓ Admin-Modus aktiv';$('adminPin').value='';render();toast('Admin-Modus aktiviert')}else toast('Falsches Admin-Passwort.')}
 $('adminLogin').onclick=login;$('adminLogout').onclick=()=>{admin=false;$('adminStatus').textContent='Nicht eingeloggt';render()};
 $('finish').onclick=()=>{if(!admin)return toast('Bitte zuerst als Admin einloggen.');const n=locations.filter(x=>x.selected).length;if(!n)return toast('Bitte mindestens eine Location auswählen.');toast(n+' Location(s) ausgewählt.');};
