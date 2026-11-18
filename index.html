@@ -7,9 +7,15 @@
 </style></head><body>
 <div class="wrap"><aside class="side">
 <div class="brand">THW Jugend Weingarten · 24h Übung</div><div class="sub">Gemeinsame Location- und Ideenplanung</div>
+<div id="loginScreen" style="position:fixed;inset:0;background:#0d1117;z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px">
+<div class="card" style="width:min(420px,100%);text-align:center"><div class="brand">THW Jugend Weingarten</div><div class="sub">24h-Übung · Zugang</div>
+<div class="field"><label>Wer bist du?</label><select id="member"><option value="">Bitte Namen auswählen</option><option>Jason</option><option>Moritz</option><option>Jonas</option><option>Kira</option><option>Johannes</option><option>Hennrik</option></select></div>
+<div class="field"><label>Passwort</label><input id="memberPassword" type="password" placeholder="Dein Name"></div>
+<button class="primary" id="memberLogin" style="width:100%">Einloggen</button>
+<div class="hint" style="margin-top:10px">Passwort ist dein Name.</div></div></div>
 <div class="card"><h2>📍 Neue Location</h2>
 <div class="field"><label>Name der Location</label><input id="name" placeholder="z. B. Parkplatz, Waldstück, Gebäude"></div>
-<div class="field"><label>Dein Name</label><input id="person" placeholder="Wer trägt sie ein?"></div>
+<div class="field"><label>Dein Name</label><input id="person" readonly placeholder="Nach dem Login automatisch gesetzt"></div>
 <div class="field"><label>Was befindet sich dort?</label><textarea id="description" placeholder="z. B. großer Parkplatz, Wald, Bach, Gebäude ..."></textarea></div>
 <div class="field"><label>Was könnte dort passieren?</label><textarea id="idea" placeholder="z. B. Vermisstensuche, Beleuchtung, TH-Aktion ..."></textarea></div>
 <div class="field"><label>Einsatzart</label><select id="category"><option>Vermisstensuche</option><option>Technische Hilfeleistung</option><option>Unwetter / Hochwasser</option><option>Beleuchtung</option><option>Erkundung</option><option>Transport / Logistik</option><option>Sonstiges</option></select></div>
@@ -108,7 +114,7 @@ async function addPhotos(id){
   input.click();
 }
 window.addPhotos=addPhotos;
-function login(){if($('adminPin').value==='THW24-ADMIN'){admin=true;$('adminStatus').textContent='✓ Admin-Modus aktiv';$('adminPin').value='';render();toast('Admin-Modus aktiviert')}else toast('Falsches Admin-Passwort.')}
+function memberLogin(){const n=$('member').value;if(!n)return toast('Bitte deinen Namen auswählen.');if($('memberPassword').value!==n)return toast('Falsches Passwort.');$('person').value=n;$('loginScreen').style.display='none';sessionStorage.setItem('thw_member',n);toast('Willkommen, '+n+'!')}\n$('memberLogin').onclick=memberLogin;$('memberPassword').addEventListener('keydown',e=>{if(e.key==='Enter')memberLogin()});\nconst savedMember=sessionStorage.getItem('thw_member');if(savedMember&&['Jason','Moritz','Jonas','Kira','Johannes','Hennrik'].includes(savedMember)){$('person').value=savedMember;$('loginScreen').style.display='none';}\nfunction login(){if($('adminPin').value==='THW24-ADMIN'){admin=true;$('adminStatus').textContent='✓ Admin-Modus aktiv';$('adminPin').value='';render();toast('Admin-Modus aktiviert')}else toast('Falsches Admin-Passwort.')}
 $('adminLogin').onclick=login;$('adminLogout').onclick=()=>{admin=false;$('adminStatus').textContent='Nicht eingeloggt';render()};
 $('finish').onclick=()=>{if(!admin)return toast('Bitte zuerst als Admin einloggen.');const n=locations.filter(x=>x.selected).length;if(!n)return toast('Bitte mindestens eine Location auswählen.');toast(n+' Location(s) ausgewählt.');};
 $('refresh').onclick=load;load();db.channel('exercise_locations_live').on('postgres_changes',{event:'*',schema:'public',table:'exercise_locations'},load).subscribe();
